@@ -1,6 +1,6 @@
 project:
   name: semantic-product-search-reranking
-  schema_version: 1
+  schema_version: 2
 
 source:
   dataset: amazon-shopping-queries-esci
@@ -10,6 +10,7 @@ source:
 
 model:
   backbone: microsoft/deberta-v3-base
+  backbone_revision: null
   label_to_id:
     E: 0
     S: 1
@@ -23,6 +24,7 @@ model:
     - product_bullet_point
 
 training:
+  loss: standard_four_class_cross_entropy
   development_epochs: 1
   final_epochs: 2
   learning_rate: 2.0e-5
@@ -30,8 +32,10 @@ training:
   train_batch_size: 8
   evaluation_batch_size: 16
   gradient_accumulation_steps: 4
+  max_gradient_norm: 1.0
   fp16: true
   seed: 20260704
+  windows_dataloader_workers: 0
 
 development_split:
   group_key: query_id
@@ -58,3 +62,5 @@ reliability:
   official_test_used_for_selection: false
   model_ensemble_allowed: false
   pseudo_labeling_allowed: false
+  paired_query_bootstrap_replicates: 1000
+  paired_query_bootstrap_seed: 20260704

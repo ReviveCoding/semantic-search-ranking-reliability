@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Mapping
 
@@ -9,6 +10,9 @@ WHITESPACE_PATTERN = re.compile(r"\s+")
 
 def normalize_text(value: object) -> str:
     if value is None:
+        return ""
+
+    if isinstance(value, float) and math.isnan(value):
         return ""
 
     return WHITESPACE_PATTERN.sub(

@@ -1,0 +1,93 @@
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+import numpy as np
+import pandas as pd
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+from semantic_reranker.semantic_development import (
+    paired_query_bootstrap,
+    rank_semantic_candidates,
+    to_pair_frame,
+)
+from semantic_reranker.text import normalize_text
+
+
+def test_normalize_text_removes_nan() -> None:
+    assert normalize_text(float("nan")) == ""
+
+
+def test_pair_frame_has_no_nan_text_tokens() -> None:
+    frame = pd.DataFrame(
+        {
+            "query_id": [1],
+            "product_id": ["p1"],
+            "query": ["wireless mouse"],
+            "product_title": ["Mouse"],
+            "product_brand": [np.nan],
+            "product_color": [np.nan],
+            "product_bullet_point": [np.nan],
+            "esci_label": ["E"],
+        }
+    )
+
+    paired = to_pair_frame(frame)
+
+    assert "nan" not in paired[
+        "model_product_text"
+    ].iloc[0].lower()
+
+
+def test_semantic_rank_prefers_higher_gain() -> None:
+    frame = pd.DataFrame(
+        {
+            "query_id": [1, 1],
+            "product_id": ["b", "a"],
+            "semantic_expected_gain": [0.1, 0.9],
+        }
+    )
+
+    ranked = rank_semantic_candidates(frame)
+
+    assert ranked.iloc[0]["product_id"] == "a"
+    assert ranked.iloc[0]["semantic_rank"] == 1
+
+
+def test_bootstrap_has_expected_delta_direction() -> None:
+    lexical = pd.DataFrame(
+        {
+            "query_id": [1, 2],
+            "ndcg_at_10": [0.5, 0.5],
+            "top1_high_relevance": [0, 0],
+            "top1_irrelevant": [1, 1],
+        }
+    )
+
+    semantic = pd.DataFrame(
+        {
+            "query_id": [1, 2],
+            "ndcg_at_10": [1.0, 1.0],
+            "top1_high_relevance": [1, 1],
+            "top1_irrelevant": [0, 0],
+        }
+    )
+
+    result = paired_query_bootstrap(
+        lexical,
+        semantic,
+        replicate_count=20,
+        seed=7,
+    )
+
+    assert result["ndcg_at_10_delta"] == 0.5
+    assert (
+        result[
+            "top1_high_relevance_delta"
+        ] == 1.0
+    )
+    assert result["top1_irrelevant_delta"] == -1.0
