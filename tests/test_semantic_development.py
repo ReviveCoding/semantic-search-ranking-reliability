@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from semantic_reranker.semantic_development import (
+    load_deberta_tokenizer,
     paired_query_bootstrap,
     rank_semantic_candidates,
     to_pair_frame,
@@ -91,3 +92,35 @@ def test_bootstrap_has_expected_delta_direction() -> None:
         ] == 1.0
     )
     assert result["top1_irrelevant_delta"] == -1.0
+
+def test_deberta_tokenizer_uses_slow_sentencepiece_contract(
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeTokenizer:
+        pass
+
+    def fake_from_pretrained(
+        backbone: str,
+        **kwargs: object,
+    ) -> FakeTokenizer:
+        captured["backbone"] = backbone
+        captured.update(kwargs)
+        return FakeTokenizer()
+
+    monkeypatch.setattr(
+        "semantic_reranker.semantic_development."
+        "AutoTokenizer.from_pretrained",
+        fake_from_pretrained,
+    )
+
+    tokenizer = load_deberta_tokenizer(
+        backbone="microsoft/deberta-v3-base",
+        revision="test-revision",
+    )
+
+    assert isinstance(tokenizer, FakeTokenizer)
+    assert captured["backbone"] == "microsoft/deberta-v3-base"
+    assert captured["revision"] == "test-revision"
+    assert captured["use_fast"] is False

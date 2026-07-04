@@ -93,6 +93,22 @@ def resolve_model_revision(
     return revision
 
 
+def load_deberta_tokenizer(
+    backbone: str,
+    revision: str,
+) -> Any:
+    """Load DeBERTa's SentencePiece tokenizer deterministically.
+
+    DeBERTa-v3 ships a SentencePiece model. The slow tokenizer avoids
+    runtime conversion to a fast tokenizer and therefore does not depend
+    on optional conversion backends such as tiktoken.
+    """
+
+    return AutoTokenizer.from_pretrained(
+        backbone,
+        revision=revision,
+        use_fast=False,
+    )
 def to_pair_frame(frame: pd.DataFrame) -> pd.DataFrame:
     required = set(MODEL_FIELDS).union(
         {
@@ -885,8 +901,8 @@ def run_semantic_development(
         requested_revision,
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        backbone,
+    tokenizer = load_deberta_tokenizer(
+        backbone=backbone,
         revision=revision,
     )
 

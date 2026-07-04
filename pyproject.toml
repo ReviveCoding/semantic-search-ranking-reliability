@@ -17,10 +17,11 @@ dependencies = [
 
 [project.optional-dependencies]
 train = [
-    "accelerate>=1.8,<2",
-    "safetensors>=0.5,<1",
-    "sentencepiece>=0.2,<1",
-    "transformers>=4.57,<6",
+    "accelerate==1.14.0",
+    "protobuf>=5,<8",
+    "safetensors==0.8.0",
+    "sentencepiece==0.2.1",
+    "transformers==5.13.0",
 ]
 dev = [
     "pytest>=8,<9",
