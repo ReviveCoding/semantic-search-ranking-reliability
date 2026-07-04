@@ -1,0 +1,60 @@
+project:
+  name: semantic-product-search-reranking
+  schema_version: 1
+
+source:
+  dataset: amazon-shopping-queries-esci
+  locale: us
+  task_version_column: small_version
+  task_version_value: 1
+
+model:
+  backbone: microsoft/deberta-v3-base
+  label_to_id:
+    E: 0
+    S: 1
+    C: 2
+    I: 3
+  max_length: 256
+  text_fields:
+    - product_title
+    - product_brand
+    - product_color
+    - product_bullet_point
+
+training:
+  development_epochs: 1
+  final_epochs: 2
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  train_batch_size: 8
+  evaluation_batch_size: 16
+  gradient_accumulation_steps: 4
+  fp16: true
+  seed: 20260704
+
+development_split:
+  group_key: query_id
+  hash_modulus: 10
+  validation_hash_values:
+    - 8
+    - 9
+
+ranking:
+  gain_by_label:
+    E: 1.0
+    S: 0.1
+    C: 0.01
+    I: 0.0
+  primary_metric: ndcg_at_10
+  secondary_metrics:
+    - top1_high_relevance_precision
+    - top1_irrelevant_rate
+    - macro_f1
+
+reliability:
+  support_feature_allowed: false
+  support_slice_evaluation_only: true
+  official_test_used_for_selection: false
+  model_ensemble_allowed: false
+  pseudo_labeling_allowed: false
