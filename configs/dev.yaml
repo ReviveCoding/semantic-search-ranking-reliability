@@ -10,7 +10,7 @@ source:
 
 model:
   backbone: microsoft/deberta-v3-base
-  backbone_revision: null
+  backbone_revision: 8ccc9b6f36199bec6961081d44eb72fb3f7353f3
   label_to_id:
     E: 0
     S: 1
