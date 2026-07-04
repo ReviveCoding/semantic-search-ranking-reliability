@@ -33,7 +33,10 @@ training:
   evaluation_batch_size: 16
   gradient_accumulation_steps: 4
   max_gradient_norm: 1.0
-  fp16: true
+  mixed_precision:
+    autocast_dtype: bfloat16
+    grad_scaler_enabled: false
+    trainable_parameter_dtype: float32
   seed: 20260704
   windows_dataloader_workers: 0
 

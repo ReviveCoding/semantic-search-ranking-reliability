@@ -49,3 +49,14 @@ For each candidate pair:
 The first run downloads the model at an exact Hub revision, executes a small GPU forward/backward workload, and verifies validation inference.
 
 A smoke result is integration evidence only. It cannot authorize official test evaluation or claim ranking improvement.
+
+## Mixed-Precision Runtime Contract
+
+Development training uses:
+
+- FP32 trainable model parameters
+- BF16 autocast on CUDA
+- no `GradScaler`
+- gradient clipping after backward propagation and before `optimizer.step()`
+
+The driver refuses to train if CUDA BF16 support is unavailable or if any trainable parameter is not FP32.

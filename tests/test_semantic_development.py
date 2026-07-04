@@ -5,6 +5,8 @@ import sys
 
 import numpy as np
 import pandas as pd
+import torch
+import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +16,8 @@ from semantic_reranker.semantic_development import (
     load_deberta_tokenizer,
     paired_query_bootstrap,
     rank_semantic_candidates,
+    registered_amp_policy,
+    require_fp32_trainable_parameters,
     to_pair_frame,
 )
 from semantic_reranker.text import normalize_text
@@ -124,3 +128,26 @@ def test_deberta_tokenizer_uses_slow_sentencepiece_contract(
     assert captured["backbone"] == "microsoft/deberta-v3-base"
     assert captured["revision"] == "test-revision"
     assert captured["use_fast"] is False
+
+
+def test_registered_amp_policy_uses_bf16_without_scaler() -> None:
+    assert registered_amp_policy() == {
+        "autocast_dtype": "bfloat16",
+        "grad_scaler_enabled": False,
+        "trainable_parameter_dtype": "float32",
+    }
+
+
+def test_trainable_parameter_contract_requires_fp32() -> None:
+    layer = torch.nn.Linear(2, 2)
+
+    summary = require_fp32_trainable_parameters(layer)
+
+    assert summary["trainable_parameter_dtypes"] == [
+        "torch.float32"
+    ]
+
+    layer.to(dtype=torch.float16)
+
+    with pytest.raises(RuntimeError):
+        require_fp32_trainable_parameters(layer)

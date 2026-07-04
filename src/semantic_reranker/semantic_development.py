@@ -76,6 +76,80 @@ def set_reproducible_seed(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
+
+def registered_amp_policy() -> dict[str, object]:
+    """Return the fixed mixed-precision contract."""
+
+    return {
+        "autocast_dtype": "bfloat16",
+        "grad_scaler_enabled": False,
+        "trainable_parameter_dtype": "float32",
+    }
+
+
+def require_bf16_cuda(
+    device: torch.device,
+) -> torch.dtype:
+    if device.type != "cuda":
+        raise RuntimeError(
+            "Semantic development requires CUDA."
+        )
+
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "CUDA is unavailable for semantic development."
+        )
+
+    if not torch.cuda.is_bf16_supported():
+        raise RuntimeError(
+            "Current CUDA device does not support BF16."
+        )
+
+    return torch.bfloat16
+
+
+def require_fp32_trainable_parameters(
+    model: Any,
+) -> dict[str, object]:
+    trainable = [
+        parameter
+        for parameter in model.parameters()
+        if parameter.requires_grad
+    ]
+
+    if not trainable:
+        raise RuntimeError(
+            "Semantic model has no trainable parameters."
+        )
+
+    dtypes = {
+        parameter.dtype
+        for parameter in trainable
+    }
+
+    if dtypes != {torch.float32}:
+        observed = sorted(
+            str(dtype)
+            for dtype in dtypes
+        )
+
+        raise RuntimeError(
+            "Trainable parameters must be FP32 before "
+            f"BF16 autocast. Observed={observed}"
+        )
+
+    return {
+        "trainable_parameter_count": int(
+            sum(
+                parameter.numel()
+                for parameter in trainable
+            )
+        ),
+        "trainable_parameter_dtypes": [
+            "torch.float32"
+        ],
+    }
+
 def resolve_model_revision(
     backbone: str,
     requested_revision: str | None,
@@ -498,7 +572,7 @@ def train_cross_encoder(
     weight_decay: float,
     gradient_accumulation_steps: int,
     max_gradient_norm: float,
-    fp16: bool,
+    amp_dtype: torch.dtype,
     max_batches: int | None,
 ) -> dict[str, Any]:
     if gradient_accumulation_steps < 1:
@@ -506,17 +580,13 @@ def train_cross_encoder(
             "gradient_accumulation_steps must be at least 1."
         )
 
+    require_fp32_trainable_parameters(model)
     model.train()
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=learning_rate,
         weight_decay=weight_decay,
-    )
-
-    scaler = torch.amp.GradScaler(
-        "cuda",
-        enabled=fp16,
     )
 
     optimizer.zero_grad(set_to_none=True)
@@ -542,13 +612,16 @@ def train_cross_encoder(
 
         with torch.autocast(
             device_type="cuda",
-            dtype=torch.float16,
-            enabled=fp16,
+            dtype=amp_dtype,
+            enabled=True,
         ):
             outputs = model(**model_batch)
-            loss = outputs.loss / gradient_accumulation_steps
+            loss = (
+                outputs.loss /
+                gradient_accumulation_steps
+            )
 
-        scaler.scale(loss).backward()
+        loss.backward()
 
         losses.append(
             float(
@@ -564,23 +637,19 @@ def train_cross_encoder(
             gradient_accumulation_steps == 0
         )
 
-        final_limited_batch = (
+        reached_limit = (
             max_batches is not None and
             processed_batches == max_batches
         )
 
-        if should_step or final_limited_batch:
-            scaler.unscale_(optimizer)
-
+        if should_step or reached_limit:
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(),
                 max_gradient_norm,
             )
 
-            scaler.step(optimizer)
-            scaler.update()
+            optimizer.step()
             optimizer.zero_grad(set_to_none=True)
-
             optimizer_steps += 1
 
     if (
@@ -588,21 +657,19 @@ def train_cross_encoder(
         processed_batches % gradient_accumulation_steps != 0 and
         max_batches is None
     ):
-        scaler.unscale_(optimizer)
-
         torch.nn.utils.clip_grad_norm_(
             model.parameters(),
             max_gradient_norm,
         )
 
-        scaler.step(optimizer)
-        scaler.update()
+        optimizer.step()
         optimizer.zero_grad(set_to_none=True)
-
         optimizer_steps += 1
 
     if processed_batches == 0:
-        raise RuntimeError("No training batches were processed.")
+        raise RuntimeError(
+            "No training batches were processed."
+        )
 
     return {
         "processed_micro_batches": processed_batches,
@@ -616,7 +683,7 @@ def score_cross_encoder(
     model: Any,
     loader: DataLoader,
     device: torch.device,
-    fp16: bool,
+    amp_dtype: torch.dtype,
     max_batches: int | None,
 ) -> pd.DataFrame:
     model.eval()
@@ -645,8 +712,8 @@ def score_cross_encoder(
 
             with torch.autocast(
                 device_type="cuda",
-                dtype=torch.float16,
-                enabled=fp16,
+                dtype=amp_dtype,
+                enabled=True,
             ):
                 logits = model(**model_batch).logits
 
@@ -655,10 +722,7 @@ def score_cross_encoder(
                 dim=-1,
             ).cpu().numpy()
 
-            row_id_parts.append(
-                row_ids.numpy()
-            )
-
+            row_id_parts.append(row_ids.numpy())
             probability_parts.append(probabilities)
             predicted_parts.append(
                 probabilities.argmax(axis=1)
@@ -918,7 +982,16 @@ def run_semantic_development(
     )
 
     device = torch.device("cuda:0")
-    model.to(device)
+    amp_dtype = require_bf16_cuda(device)
+
+    model.to(
+        device=device,
+        dtype=torch.float32,
+    )
+
+    parameter_summary = require_fp32_trainable_parameters(
+        model
+    )
 
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats(device)
@@ -958,7 +1031,7 @@ def run_semantic_development(
         weight_decay=0.01,
         gradient_accumulation_steps=4,
         max_gradient_norm=1.0,
-        fp16=True,
+        amp_dtype=amp_dtype,
         max_batches=max_fit_batches,
     )
 
@@ -966,7 +1039,7 @@ def run_semantic_development(
         model=model,
         loader=validation_loader,
         device=device,
-        fp16=True,
+        amp_dtype=amp_dtype,
         max_batches=max_validation_batches,
     )
 
@@ -1009,7 +1082,7 @@ def run_semantic_development(
             "gradient_accumulation_steps": 4,
             "learning_rate": 2.0e-5,
             "weight_decay": 0.01,
-            "fp16": True,
+            "mixed_precision": registered_amp_policy(),
             "seed": 20260704,
         },
         "provenance": provenance,
@@ -1018,8 +1091,12 @@ def run_semantic_development(
             len(semantic_scores)
         ),
         "elapsed_seconds": elapsed_seconds,
+        "parameter_contract": parameter_summary,
         "gpu": {
             "name": torch.cuda.get_device_name(device),
+            "bf16_supported": bool(
+                torch.cuda.is_bf16_supported()
+            ),
             "peak_allocated_gb": round(
                 torch.cuda.max_memory_allocated(device) /
                 1024**3,
