@@ -11,7 +11,7 @@
     ],
     "supported": "Offline candidate-set semantic reranking on the official ESCI relevance benchmark."
   },
-  "evidence_code_revision_before_packaging": "9206bf2952735a5efb5f1ed292d0f8165b3c5740",
+  "evidence_code_revision_before_packaging": "b75ba9a54a659d09f8800f1a62ff2330d3e57399",
   "final_metrics": {
     "frozen_lexical": {
       "ndcg_at_10": 0.6857051434001196,

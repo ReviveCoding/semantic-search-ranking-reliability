@@ -12,7 +12,7 @@
 
 ## Public claim
 
-Built a GPU-accelerated four-class semantic query-product reranker on the official Amazon ESCI benchmark using a pinned DeBERTa-v3 cross-encoder and gain-aligned ranking score. In a one-shot held-out official test evaluation, improved nDCG@10 from 0.686 to 0.804, increased Top-1 Exact-or-Substitute precision by +7.57pp, and reduced irrelevant Top-1 selections by +4.42pp versus a frozen lexical baseline.
+Built a GPU-accelerated four-class semantic query-product reranker on the official Amazon ESCI benchmark using a pinned DeBERTa-v3 cross-encoder and gain-aligned ranking score. In a one-shot held-out official test evaluation, improved nDCG@10 from 0.686 to 0.804, increased Top-1 Exact-or-Substitute precision by +7.57pp, and reduced irrelevant Top-1 selections by 4.42 percentage points versus a frozen lexical baseline.
 
 ## Do not claim
 

@@ -49,6 +49,10 @@ def pp(value: float) -> str:
     return f"{value * 100:+.2f}pp"
 
 
+def reduction_pp(value: float) -> str:
+    return f"{abs(value) * 100:.2f} percentage points"
+
+
 def md_table(headers: list[str], rows: list[list[str]]) -> str:
     lines = [
         "| " + " | ".join(headers) + " |",
@@ -171,7 +175,7 @@ def main(project_root: Path) -> None:
         f"official test evaluation, improved nDCG@10 from {lexical['ndcg_at_10']:.3f} "
         f"to {semantic['ndcg_at_10']:.3f}, increased Top-1 Exact-or-Substitute "
         f"precision by {pp(boot['top1_high_relevance_delta'])}, and reduced "
-        f"irrelevant Top-1 selections by {pp(abs(boot['top1_irrelevant_delta']))} "
+        f"irrelevant Top-1 selections by {reduction_pp(boot['top1_irrelevant_delta'])} "
         "versus a frozen lexical baseline."
     )
 
@@ -420,7 +424,7 @@ Not supported: production deployment, CTR or conversion lift, advertising causal
 
 ## Search / ranking bullet
 
-- Built a reliability-first semantic product-search reranker with a pinned DeBERTa-v3 cross-encoder; improved nDCG@10 from `{lexical['ndcg_at_10']:.3f}` to `{semantic['ndcg_at_10']:.3f}` and reduced irrelevant Top-1 selections by `{pp(abs(boot['top1_irrelevant_delta']))}` on a one-shot official ESCI held-out test.
+- Built a reliability-first semantic product-search reranker with a pinned DeBERTa-v3 cross-encoder; improved nDCG@10 from `{lexical['ndcg_at_10']:.3f}` to `{semantic['ndcg_at_10']:.3f}` and reduced irrelevant Top-1 selections by `{reduction_pp(boot['top1_irrelevant_delta'])}` on a one-shot official ESCI held-out test.
 
 ## Applied Scientist bullet
 
@@ -428,7 +432,7 @@ Not supported: production deployment, CTR or conversion lift, advertising causal
 
 ## 30-second explanation
 
-I built an offline semantic candidate reranker for product search. I froze a transparent lexical baseline, trained a four-class DeBERTa-v3 cross-encoder on query and product metadata, and ranked candidates by expected relevance gain. The reliability work was query-disjoint development, a pinned backbone revision, a pre-registered development gate, and one official test evaluation. The final held-out result improved nDCG@10 from `{lexical['ndcg_at_10']:.3f}` to `{semantic['ndcg_at_10']:.3f}` while reducing irrelevant Top-1 selections by `{pp(abs(boot['top1_irrelevant_delta']))}`.
+I built an offline semantic candidate reranker for product search. I froze a transparent lexical baseline, trained a four-class DeBERTa-v3 cross-encoder on query and product metadata, and ranked candidates by expected relevance gain. The reliability work was query-disjoint development, a pinned backbone revision, a pre-registered development gate, and one official test evaluation. The final held-out result improved nDCG@10 from `{lexical['ndcg_at_10']:.3f}` to `{semantic['ndcg_at_10']:.3f}` while reducing irrelevant Top-1 selections by `{reduction_pp(boot['top1_irrelevant_delta'])}`.
 
 ## Limitations to state
 
