@@ -1,0 +1,53 @@
+{
+  "backbone": "microsoft/deberta-v3-base",
+  "backbone_revision": "8ccc9b6f36199bec6961081d44eb72fb3f7353f3",
+  "claim_boundary": {
+    "not_supported": [
+      "production deployment",
+      "CTR lift",
+      "conversion lift",
+      "advertising causality",
+      "end-to-end retrieval quality"
+    ],
+    "supported": "Offline candidate-set semantic reranking on the official ESCI relevance benchmark."
+  },
+  "evidence_code_revision_before_packaging": "9206bf2952735a5efb5f1ed292d0f8165b3c5740",
+  "final_metrics": {
+    "frozen_lexical": {
+      "ndcg_at_10": 0.6857051434001196,
+      "top1_high_relevance_precision": 0.8513845466726218,
+      "top1_irrelevant_rate": 0.09993300580616346
+    },
+    "paired_query_bootstrap": {
+      "bootstrap_unit": "query_id",
+      "ndcg_at_10_delta": 0.11831425859618352,
+      "ndcg_at_10_delta_ci_95": [
+        0.11382826305115867,
+        0.122670088528865
+      ],
+      "random_seed": 20260704,
+      "replicate_count": 1000,
+      "top1_high_relevance_delta": 0.0757034390352836,
+      "top1_high_relevance_delta_ci_95": [
+        0.06744082179544439,
+        0.08396884769986601
+      ],
+      "top1_irrelevant_delta": -0.04421616793211255,
+      "top1_irrelevant_delta_ci_95": [
+        -0.05091558731576597,
+        -0.03829555605180884
+      ]
+    },
+    "semantic": {
+      "macro_f1": 0.5483026634925101,
+      "ndcg_at_10": 0.8040194019963031,
+      "top1_high_relevance_precision": 0.9270879857079053,
+      "top1_irrelevant_rate": 0.05571683787405091
+    }
+  },
+  "final_model_safetensors_sha256": "af4c95979eeed6932dcc2d90725ff853b0e03a1b36c04d5b4272a2902e3d80ad",
+  "model_selection_closed": true,
+  "official_test_receipt_sha256": "19b714a0a716ba346baa6a7159e235098620494e79ebde5d16dedaa399514fb3",
+  "source_commit": "7916cdf6ab75a462e77f20ab40428a10923998d5",
+  "status": "PORTFOLIO_DOCUMENTATION_EVIDENCE_MANIFEST"
+}
