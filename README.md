@@ -1,5 +1,7 @@
 # Reliability-First Semantic Search Ranking
 
+[![CI](https://github.com/ReviveCoding/semantic-search-ranking-reliability/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ReviveCoding/semantic-search-ranking-reliability/actions/workflows/ci.yml)
+
 GPU-accelerated semantic query-product reranking on the official Amazon Shopping Queries ESCI relevance benchmark.
 
 ## Final official held-out test result
