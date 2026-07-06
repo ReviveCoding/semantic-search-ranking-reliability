@@ -11,3 +11,9 @@ artifacts/*
 checkpoints/
 .env
 .DS_Store
+# Local data, evidence, environments, and caches.
+/artifacts/
+/data/raw/
+/.venv/
+/.pytest_cache/
+**/__pycache__/
