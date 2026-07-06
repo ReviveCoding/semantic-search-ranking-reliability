@@ -12,6 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from semantic_reranker.reliability_report import (
     build_support_slice_table,
     classify_top1_change,
+    markdown_table,
     support_bucket,
 )
 
@@ -61,3 +62,37 @@ def test_support_slice_uses_frozen_lexical_anchor() -> None:
             "top1_irrelevant_delta"
         ] == -0.5
     )
+
+
+def test_markdown_table_has_no_tabulate_dependency(
+    monkeypatch,
+) -> None:
+    def fail_if_called(*args, **kwargs):
+        raise RuntimeError(
+            "DataFrame.to_markdown must not be called."
+        )
+
+    monkeypatch.setattr(
+        pd.DataFrame,
+        "to_markdown",
+        fail_if_called,
+    )
+
+    frame = pd.DataFrame(
+        {
+            "metric|name": [
+                "nDCG",
+                "line\nbreak",
+            ],
+            "value": [
+                0.5,
+                None,
+            ],
+        }
+    )
+
+    rendered = markdown_table(frame)
+
+    assert "| metric\\|name | value |" in rendered
+    assert "| nDCG | 0.500000 |" in rendered
+    assert "line<br>break" in rendered

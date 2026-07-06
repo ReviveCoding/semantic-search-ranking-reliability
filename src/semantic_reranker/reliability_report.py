@@ -125,16 +125,67 @@ def format_percentage(
     return f"{value * 100:.2f}%"
 
 
+def markdown_cell(
+    value: object,
+) -> str:
+    """Render one value without optional Markdown dependencies."""
+
+    if pd.isna(value):
+        rendered = ""
+    elif isinstance(value, float):
+        rendered = f"{value:.6f}"
+    else:
+        rendered = str(value)
+
+    return (
+        rendered
+        .replace("|", r"\|")
+        .replace("\r\n", "<br>")
+        .replace("\n", "<br>")
+        .replace("\r", "<br>")
+    )
+
+
 def markdown_table(
     frame: pd.DataFrame,
 ) -> str:
+    """Render a deterministic GitHub-flavored Markdown table.
+
+    This intentionally does not call ``DataFrame.to_markdown()``,
+    because that pandas convenience method requires the optional
+    ``tabulate`` package.
+    """
+
     if frame.empty:
         return "_No rows._"
 
-    return frame.to_markdown(
+    headers = [
+        markdown_cell(column)
+        for column in frame.columns
+    ]
+
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(
+            "---"
+            for _ in headers
+        ) + " |",
+    ]
+
+    for row in frame.itertuples(
         index=False,
-        floatfmt=".6f",
-    )
+        name=None,
+    ):
+        cells = [
+            markdown_cell(value)
+            for value in row
+        ]
+
+        lines.append(
+            "| " + " | ".join(cells) + " |"
+        )
+
+    return "\n".join(lines)
 
 
 def build_train_support(
