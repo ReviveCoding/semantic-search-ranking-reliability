@@ -51,7 +51,9 @@ def expected_esci_gain(
 
     if probabilities.shape[1] != len(LABEL_TO_ID):
         raise ValueError(
-            "Unexpected class dimension."
+            f"Expected {len(LABEL_TO_ID)} ESCI classes, got {probabilities.shape[1]}."
         )
+    if not np.isfinite(probabilities).all():
+        raise ValueError("ESCI probabilities must contain only finite values.")
 
     return probabilities @ GAIN_VECTOR
