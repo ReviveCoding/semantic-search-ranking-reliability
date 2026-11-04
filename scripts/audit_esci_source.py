@@ -5,7 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
@@ -15,8 +14,7 @@ from semantic_reranker.esci_source import audit_esci_us_task1
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Validate official ESCI US Task 1 raw-source "
-            "provenance and schema."
+            "Validate official ESCI US Task 1 raw-source provenance and schema."
         )
     )
 
@@ -52,9 +50,7 @@ def main() -> None:
             {
                 "status": payload["status"],
                 "source_commit": payload["source"]["commit"],
-                "task1_us_summary": (
-                    payload["task1_us_summary"]
-                ),
+                "task1_us_summary": (payload["task1_us_summary"]),
                 "claim_boundary": payload["claim_boundary"],
                 "next_gate": payload["next_gate"],
                 "receipt_path": payload["receipt_path"],

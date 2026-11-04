@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -30,10 +29,7 @@ def test_one_shot_guard_rejects_existing_receipt(
 
     run_root.mkdir(parents=True)
 
-    (
-        run_root /
-        "official_test_evaluation_receipt.json"
-    ).write_text(
+    (run_root / "official_test_evaluation_receipt.json").write_text(
         "{}",
         encoding="utf-8",
     )

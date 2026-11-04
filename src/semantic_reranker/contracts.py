@@ -4,7 +4,6 @@ from typing import Final
 
 import numpy as np
 
-
 LABEL_TO_ID: Final[dict[str, int]] = {
     "E": 0,
     "S": 1,
@@ -12,10 +11,7 @@ LABEL_TO_ID: Final[dict[str, int]] = {
     "I": 3,
 }
 
-ID_TO_LABEL: Final[dict[int, str]] = {
-    value: key
-    for key, value in LABEL_TO_ID.items()
-}
+ID_TO_LABEL: Final[dict[int, str]] = {value: key for key, value in LABEL_TO_ID.items()}
 
 GAIN_BY_LABEL: Final[dict[str, float]] = {
     "E": 1.0,
@@ -25,10 +21,7 @@ GAIN_BY_LABEL: Final[dict[str, float]] = {
 }
 
 GAIN_VECTOR: Final[np.ndarray] = np.array(
-    [
-        GAIN_BY_LABEL[ID_TO_LABEL[index]]
-        for index in range(len(ID_TO_LABEL))
-    ],
+    [GAIN_BY_LABEL[ID_TO_LABEL[index]] for index in range(len(ID_TO_LABEL))],
     dtype=np.float64,
 )
 
@@ -45,8 +38,7 @@ def expected_esci_gain(
 
     if probabilities.ndim != 2:
         raise ValueError(
-            "probabilities must have shape "
-            "(candidate_count, class_count)."
+            "probabilities must have shape (candidate_count, class_count)."
         )
 
     if probabilities.shape[1] != len(LABEL_TO_ID):

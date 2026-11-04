@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import pyarrow.parquet as pq
-
 
 HIGH_RELEVANCE = {"E", "S"}
 
@@ -47,15 +46,10 @@ def load_json(
     path: Path,
     expected_status: str,
 ) -> dict[str, Any]:
-    payload = json.loads(
-        path.read_text(encoding="utf-8")
-    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
 
     if payload.get("status") != expected_status:
-        raise ValueError(
-            f"Unexpected status for {path.name}: "
-            f"{payload.get('status')}"
-        )
+        raise ValueError(f"Unexpected status for {path.name}: {payload.get('status')}")
 
     return payload
 
@@ -110,12 +104,8 @@ def top1_metrics(
         raise ValueError("Cannot calculate metrics from no labels.")
 
     return {
-        "top1_high_relevance_precision": float(
-            labels.isin(HIGH_RELEVANCE).mean()
-        ),
-        "top1_irrelevant_rate": float(
-            labels.eq("I").mean()
-        ),
+        "top1_high_relevance_precision": float(labels.isin(HIGH_RELEVANCE).mean()),
+        "top1_irrelevant_rate": float(labels.eq("I").mean()),
     }
 
 
@@ -138,8 +128,7 @@ def markdown_cell(
         rendered = str(value)
 
     return (
-        rendered
-        .replace("|", r"\|")
+        rendered.replace("|", r"\|")
         .replace("\r\n", "<br>")
         .replace("\n", "<br>")
         .replace("\r", "<br>")
@@ -159,31 +148,20 @@ def markdown_table(
     if frame.empty:
         return "_No rows._"
 
-    headers = [
-        markdown_cell(column)
-        for column in frame.columns
-    ]
+    headers = [markdown_cell(column) for column in frame.columns]
 
     lines = [
         "| " + " | ".join(headers) + " |",
-        "| " + " | ".join(
-            "---"
-            for _ in headers
-        ) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
     ]
 
     for row in frame.itertuples(
         index=False,
         name=None,
     ):
-        cells = [
-            markdown_cell(value)
-            for value in row
-        ]
+        cells = [markdown_cell(value) for value in row]
 
-        lines.append(
-            "| " + " | ".join(cells) + " |"
-        )
+        lines.append("| " + " | ".join(cells) + " |")
 
     return "\n".join(lines)
 
@@ -192,15 +170,13 @@ def build_train_support(
     raw_root: Path,
 ) -> pd.Series:
     examples_path = (
-        raw_root /
-        "shopping_queries_dataset" /
-        "shopping_queries_dataset_examples.parquet"
+        raw_root
+        / "shopping_queries_dataset"
+        / "shopping_queries_dataset_examples.parquet"
     )
 
     if not examples_path.is_file():
-        raise FileNotFoundError(
-            f"ESCI examples parquet is missing: {examples_path}"
-        )
+        raise FileNotFoundError(f"ESCI examples parquet is missing: {examples_path}")
 
     train_rows = pq.read_table(
         examples_path,
@@ -218,20 +194,12 @@ def build_train_support(
     ).to_pandas()
 
     if train_rows.empty:
-        raise RuntimeError(
-            "No US Task 1 training rows were loaded."
-        )
+        raise RuntimeError("No US Task 1 training rows were loaded.")
 
     if set(train_rows["split"].unique()) != {"train"}:
-        raise RuntimeError(
-            "Non-training rows entered support diagnostics."
-        )
+        raise RuntimeError("Non-training rows entered support diagnostics.")
 
-    return (
-        train_rows["product_id"]
-        .astype(str)
-        .value_counts()
-    )
+    return train_rows["product_id"].astype(str).value_counts()
 
 
 def build_support_slice_table(
@@ -240,19 +208,13 @@ def build_support_slice_table(
     records: list[dict[str, Any]] = []
 
     for bucket in SUPPORT_BUCKET_ORDER:
-        rows = paired.loc[
-            paired["lexical_support_bucket"] == bucket
-        ].copy()
+        rows = paired.loc[paired["lexical_support_bucket"] == bucket].copy()
 
         if rows.empty:
             continue
 
-        lexical = top1_metrics(
-            rows["lexical_esci_label"]
-        )
-        semantic = top1_metrics(
-            rows["semantic_esci_label"]
-        )
+        lexical = top1_metrics(rows["lexical_esci_label"])
+        semantic = top1_metrics(rows["semantic_esci_label"])
 
         records.append(
             {
@@ -262,32 +224,19 @@ def build_support_slice_table(
                     rows["lexical_train_support"].mean()
                 ),
                 "lexical_top1_high_relevance_precision": (
-                    lexical[
-                        "top1_high_relevance_precision"
-                    ]
+                    lexical["top1_high_relevance_precision"]
                 ),
                 "semantic_top1_high_relevance_precision": (
-                    semantic[
-                        "top1_high_relevance_precision"
-                    ]
+                    semantic["top1_high_relevance_precision"]
                 ),
                 "top1_high_relevance_delta": (
-                    semantic[
-                        "top1_high_relevance_precision"
-                    ] -
-                    lexical[
-                        "top1_high_relevance_precision"
-                    ]
+                    semantic["top1_high_relevance_precision"]
+                    - lexical["top1_high_relevance_precision"]
                 ),
-                "lexical_top1_irrelevant_rate": (
-                    lexical["top1_irrelevant_rate"]
-                ),
-                "semantic_top1_irrelevant_rate": (
-                    semantic["top1_irrelevant_rate"]
-                ),
+                "lexical_top1_irrelevant_rate": (lexical["top1_irrelevant_rate"]),
+                "semantic_top1_irrelevant_rate": (semantic["top1_irrelevant_rate"]),
                 "top1_irrelevant_delta": (
-                    semantic["top1_irrelevant_rate"] -
-                    lexical["top1_irrelevant_rate"]
+                    semantic["top1_irrelevant_rate"] - lexical["top1_irrelevant_rate"]
                 ),
             }
         )
@@ -306,45 +255,23 @@ def build_consistency_table(
         "top1_high_relevance_precision",
         "top1_irrelevant_rate",
     ):
-        development_lexical = float(
-            development["frozen_lexical_metrics"][
-                metric_name
-            ]
-        )
-        development_semantic = float(
-            development["semantic_metrics"][
-                metric_name
-            ]
-        )
-        official_lexical = float(
-            official["frozen_lexical_metrics"][
-                metric_name
-            ]
-        )
-        official_semantic = float(
-            official["semantic_metrics"][
-                metric_name
-            ]
-        )
+        development_lexical = float(development["frozen_lexical_metrics"][metric_name])
+        development_semantic = float(development["semantic_metrics"][metric_name])
+        official_lexical = float(official["frozen_lexical_metrics"][metric_name])
+        official_semantic = float(official["semantic_metrics"][metric_name])
 
         records.append(
             {
                 "metric": metric_name,
                 "development_lexical": development_lexical,
                 "development_semantic": development_semantic,
-                "development_delta": (
-                    development_semantic -
-                    development_lexical
-                ),
+                "development_delta": (development_semantic - development_lexical),
                 "official_test_lexical": official_lexical,
                 "official_test_semantic": official_semantic,
-                "official_test_delta": (
-                    official_semantic -
-                    official_lexical
-                ),
+                "official_test_delta": (official_semantic - official_lexical),
                 "official_minus_development_delta": (
-                    (official_semantic - official_lexical) -
-                    (development_semantic - development_lexical)
+                    (official_semantic - official_lexical)
+                    - (development_semantic - development_lexical)
                 ),
             }
         )
@@ -365,18 +292,11 @@ def build_taxonomy(
         .reset_index()
     )
 
-    taxonomy["share_of_queries"] = (
-        taxonomy["query_count"] / len(paired)
-    )
+    taxonomy["share_of_queries"] = taxonomy["query_count"] / len(paired)
 
-    order_map = {
-        name: index
-        for index, name in enumerate(CHANGE_ORDER)
-    }
+    order_map = {name: index for index, name in enumerate(CHANGE_ORDER)}
 
-    taxonomy["_order"] = taxonomy[
-        "top1_change_type"
-    ].map(order_map)
+    taxonomy["_order"] = taxonomy["top1_change_type"].map(order_map)
 
     taxonomy = taxonomy.sort_values(
         ["_order", "top1_change_type"],
@@ -390,24 +310,17 @@ def build_examples(
     paired: pd.DataFrame,
 ) -> pd.DataFrame:
     changed = paired.loc[
-        paired["top1_change_type"].ne(
-            "E_OR_S_TO_E_OR_S"
-        ) &
-        paired["top1_change_type"].ne("C_TO_C") &
-        paired["top1_change_type"].ne("I_TO_I")
+        paired["top1_change_type"].ne("E_OR_S_TO_E_OR_S")
+        & paired["top1_change_type"].ne("C_TO_C")
+        & paired["top1_change_type"].ne("I_TO_I")
     ].copy()
 
     if changed.empty:
         return pd.DataFrame()
 
-    order_map = {
-        name: index
-        for index, name in enumerate(CHANGE_ORDER)
-    }
+    order_map = {name: index for index, name in enumerate(CHANGE_ORDER)}
 
-    changed["_change_order"] = changed[
-        "top1_change_type"
-    ].map(order_map)
+    changed["_change_order"] = changed["top1_change_type"].map(order_map)
 
     changed = changed.sort_values(
         [
@@ -474,9 +387,7 @@ def build_read_only_reliability_report(
     output_root: Path,
 ) -> dict[str, Any]:
     if output_root.exists():
-        raise FileExistsError(
-            f"Output root already exists: {output_root}"
-        )
+        raise FileExistsError(f"Output root already exists: {output_root}")
 
     source = load_json(
         source_contract_path,
@@ -484,8 +395,7 @@ def build_read_only_reliability_report(
     )
     lexical = load_json(
         lexical_receipt_path,
-        "QUERY_DISJOINT_DEVELOPMENT_AND_"
-        "FROZEN_LEXICAL_BASELINE_COMPLETE",
+        "QUERY_DISJOINT_DEVELOPMENT_AND_FROZEN_LEXICAL_BASELINE_COMPLETE",
     )
     development = load_json(
         development_metrics_path,
@@ -497,48 +407,22 @@ def build_read_only_reliability_report(
     )
 
     if development.get("gate_pass") is not True:
-        raise RuntimeError(
-            "Development gate was not passed."
-        )
+        raise RuntimeError("Development gate was not passed.")
 
-    if (
-        official.get("model_selection_after_test_allowed")
-        is not False
-    ):
-        raise RuntimeError(
-            "Official receipt does not close model selection."
-        )
+    if official.get("model_selection_after_test_allowed") is not False:
+        raise RuntimeError("Official receipt does not close model selection.")
 
-    if (
-        official.get("official_test_usage_role") !=
-        "final_evaluation_only"
-    ):
-        raise RuntimeError(
-            "Official receipt has an unexpected test usage role."
-        )
+    if official.get("official_test_usage_role") != "final_evaluation_only":
+        raise RuntimeError("Official receipt has an unexpected test usage role.")
 
-    if (
-        official.get("official_test_row_level_used")
-        is not True
-    ):
-        raise RuntimeError(
-            "Official receipt does not record test usage."
-        )
+    if official.get("official_test_row_level_used") is not True:
+        raise RuntimeError("Official receipt does not record test usage.")
 
     official_root = official_receipt_path.parent
 
-    lexical_top1_path = (
-        official_root /
-        "lexical_test_top1.csv"
-    )
-    semantic_top1_path = (
-        official_root /
-        "semantic_test_top1.csv"
-    )
-    paired_metrics_path = (
-        official_root /
-        "paired_test_query_ranking_metrics.csv"
-    )
+    lexical_top1_path = official_root / "lexical_test_top1.csv"
+    semantic_top1_path = official_root / "semantic_test_top1.csv"
+    paired_metrics_path = official_root / "paired_test_query_ranking_metrics.csv"
 
     for path in (
         lexical_top1_path,
@@ -560,23 +444,17 @@ def build_read_only_reliability_report(
     )
 
     if lexical_top1["query_id"].duplicated().any():
-        raise RuntimeError(
-            "Lexical Top-1 artifact has duplicate queries."
-        )
+        raise RuntimeError("Lexical Top-1 artifact has duplicate queries.")
 
     if semantic_top1["query_id"].duplicated().any():
-        raise RuntimeError(
-            "Semantic Top-1 artifact has duplicate queries."
-        )
+        raise RuntimeError("Semantic Top-1 artifact has duplicate queries.")
 
     lexical_top1 = lexical_top1.rename(
         columns={
             "product_id": "lexical_product_id",
             "product_title": "lexical_product_title",
             "esci_label": "lexical_esci_label",
-            "lexical_title_coverage": (
-                "lexical_title_coverage"
-            ),
+            "lexical_title_coverage": ("lexical_title_coverage"),
         }
     )
 
@@ -604,14 +482,11 @@ def build_read_only_reliability_report(
         validate="1:1",
     )
 
-    expected_query_count = int(
-        official["dataset_summary"]["test_query_count"]
-    )
+    expected_query_count = int(official["dataset_summary"]["test_query_count"])
 
     if len(paired) != expected_query_count:
         raise RuntimeError(
-            "Top-1 artifact query coverage does not match "
-            "official-test receipt."
+            "Top-1 artifact query coverage does not match official-test receipt."
         )
 
     train_support = build_train_support(raw_root)
@@ -624,9 +499,8 @@ def build_read_only_reliability_report(
         .astype(int)
     )
 
-    paired["lexical_support_bucket"] = (
-        paired["lexical_train_support"]
-        .map(support_bucket)
+    paired["lexical_support_bucket"] = paired["lexical_train_support"].map(
+        support_bucket
     )
 
     paired["top1_change_type"] = [
@@ -645,9 +519,7 @@ def build_read_only_reliability_report(
         official,
     )
 
-    support_slices = build_support_slice_table(
-        paired
-    )
+    support_slices = build_support_slice_table(paired)
 
     taxonomy = build_taxonomy(paired)
     examples = build_examples(paired)
@@ -656,43 +528,20 @@ def build_read_only_reliability_report(
     semantic_metrics = official["semantic_metrics"]
     lexical_metrics = official["frozen_lexical_metrics"]
 
-    runtime_hours = float(
-        official["elapsed_seconds"]
-    ) / 3600.0
+    runtime_hours = float(official["elapsed_seconds"]) / 3600.0
 
     output_root.mkdir(
         parents=True,
         exist_ok=False,
     )
 
-    consistency_path = (
-        output_root /
-        "development_vs_official_test_consistency.csv"
-    )
-    support_path = (
-        output_root /
-        "frozen_lexical_anchor_support_slices.csv"
-    )
-    taxonomy_path = (
-        output_root /
-        "top1_change_taxonomy.csv"
-    )
-    examples_path = (
-        output_root /
-        "top1_change_examples.csv"
-    )
-    report_path = (
-        output_root /
-        "final_reliability_report.md"
-    )
-    summary_path = (
-        output_root /
-        "read_only_reliability_summary.json"
-    )
-    manifest_path = (
-        output_root /
-        "report_artifact_manifest.json"
-    )
+    consistency_path = output_root / "development_vs_official_test_consistency.csv"
+    support_path = output_root / "frozen_lexical_anchor_support_slices.csv"
+    taxonomy_path = output_root / "top1_change_taxonomy.csv"
+    examples_path = output_root / "top1_change_examples.csv"
+    report_path = output_root / "final_reliability_report.md"
+    summary_path = output_root / "read_only_reliability_summary.json"
+    manifest_path = output_root / "report_artifact_manifest.json"
 
     consistency.to_csv(
         consistency_path,
@@ -807,12 +656,8 @@ end-to-end retrieval quality.
     )
 
     summary = {
-        "status": (
-            "READ_ONLY_RELIABILITY_REPORT_COMPLETE"
-        ),
-        "generated_at_utc": datetime.now(
-            timezone.utc
-        ).isoformat(),
+        "status": ("READ_ONLY_RELIABILITY_REPORT_COMPLETE"),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "read_only_contract": {
             "model_selection_closed": True,
             "official_test_re_evaluated": False,
@@ -824,9 +669,7 @@ end-to-end retrieval quality.
             "path": str(official_receipt_path),
             "sha256": sha256_file(official_receipt_path),
             "status": official["status"],
-            "usage_role": official[
-                "official_test_usage_role"
-            ],
+            "usage_role": official["official_test_usage_role"],
         },
         "final_metrics": {
             "frozen_lexical": lexical_metrics,
@@ -834,36 +677,20 @@ end-to-end retrieval quality.
             "paired_query_bootstrap": bootstrap,
         },
         "runtime": {
-            "elapsed_seconds": float(
-                official["elapsed_seconds"]
-            ),
+            "elapsed_seconds": float(official["elapsed_seconds"]),
             "elapsed_hours": runtime_hours,
             "gpu": official["gpu"],
             "train_summary": official["train_summary"],
         },
         "provenance": {
-            "source_contract_path": str(
-                source_contract_path
-            ),
-            "source_contract_sha256": sha256_file(
-                source_contract_path
-            ),
-            "lexical_receipt_path": str(
-                lexical_receipt_path
-            ),
-            "lexical_receipt_sha256": sha256_file(
-                lexical_receipt_path
-            ),
-            "development_metrics_path": str(
-                development_metrics_path
-            ),
-            "development_metrics_sha256": sha256_file(
-                development_metrics_path
-            ),
+            "source_contract_path": str(source_contract_path),
+            "source_contract_sha256": sha256_file(source_contract_path),
+            "lexical_receipt_path": str(lexical_receipt_path),
+            "lexical_receipt_sha256": sha256_file(lexical_receipt_path),
+            "development_metrics_path": str(development_metrics_path),
+            "development_metrics_sha256": sha256_file(development_metrics_path),
             "backbone": official["backbone"],
-            "backbone_revision": official[
-                "backbone_revision"
-            ],
+            "backbone_revision": official["backbone_revision"],
             "source_commit": source["source"]["commit"],
         },
         "report_paths": {
@@ -874,8 +701,7 @@ end-to-end retrieval quality.
             "examples_csv": str(examples_path),
         },
         "next_gate": (
-            "PROJECT_CLOSED_FOR_MODEL_SELECTION_"
-            "AND_READY_FOR_PORTFOLIO_DOCUMENTATION"
+            "PROJECT_CLOSED_FOR_MODEL_SELECTION_AND_READY_FOR_PORTFOLIO_DOCUMENTATION"
         ),
     }
 
@@ -884,7 +710,8 @@ end-to-end retrieval quality.
             summary,
             indent=2,
             sort_keys=True,
-        ) + "\n",
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -895,17 +722,14 @@ end-to-end retrieval quality.
             manifest,
             indent=2,
             sort_keys=True,
-        ) + "\n",
+        )
+        + "\n",
         encoding="utf-8",
     )
 
     summary["summary_path"] = str(summary_path)
-    summary["summary_sha256"] = sha256_file(
-        summary_path
-    )
+    summary["summary_sha256"] = sha256_file(summary_path)
     summary["manifest_path"] = str(manifest_path)
-    summary["manifest_sha256"] = sha256_file(
-        manifest_path
-    )
+    summary["manifest_sha256"] = sha256_file(manifest_path)
 
     return summary

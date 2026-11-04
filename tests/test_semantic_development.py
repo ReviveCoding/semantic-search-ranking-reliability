@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import torch
 import pytest
-
+import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -43,9 +42,7 @@ def test_pair_frame_has_no_nan_text_tokens() -> None:
 
     paired = to_pair_frame(frame)
 
-    assert "nan" not in paired[
-        "model_product_text"
-    ].iloc[0].lower()
+    assert "nan" not in paired["model_product_text"].iloc[0].lower()
 
 
 def test_semantic_rank_prefers_higher_gain() -> None:
@@ -90,12 +87,9 @@ def test_bootstrap_has_expected_delta_direction() -> None:
     )
 
     assert result["ndcg_at_10_delta"] == 0.5
-    assert (
-        result[
-            "top1_high_relevance_delta"
-        ] == 1.0
-    )
+    assert result["top1_high_relevance_delta"] == 1.0
     assert result["top1_irrelevant_delta"] == -1.0
+
 
 def test_deberta_tokenizer_uses_slow_sentencepiece_contract(
     monkeypatch,
@@ -114,8 +108,7 @@ def test_deberta_tokenizer_uses_slow_sentencepiece_contract(
         return FakeTokenizer()
 
     monkeypatch.setattr(
-        "semantic_reranker.semantic_development."
-        "AutoTokenizer.from_pretrained",
+        "semantic_reranker.semantic_development.AutoTokenizer.from_pretrained",
         fake_from_pretrained,
     )
 
@@ -143,9 +136,7 @@ def test_trainable_parameter_contract_requires_fp32() -> None:
 
     summary = require_fp32_trainable_parameters(layer)
 
-    assert summary["trainable_parameter_dtypes"] == [
-        "torch.float32"
-    ]
+    assert summary["trainable_parameter_dtypes"] == ["torch.float32"]
 
     layer.to(dtype=torch.float16)
 
