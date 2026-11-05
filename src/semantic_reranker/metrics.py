@@ -15,16 +15,14 @@ def dcg_at_k(
         raise ValueError("k must be at least 1.")
 
     gains_array = np.asarray(
-        list(gains)[:k],
+        list(gains[:k]),
         dtype=np.float64,
     )
 
     if gains_array.size == 0:
         return 0.0
 
-    discounts = np.log2(
-        np.arange(2, gains_array.size + 2)
-    )
+    discounts = np.log2(np.arange(2, gains_array.size + 2))
 
     return float(np.sum(gains_array / discounts))
 
@@ -35,9 +33,7 @@ def ndcg_at_k(
     k: int = 10,
 ) -> float:
     if len(labels) != len(scores):
-        raise ValueError(
-            "labels and scores must have the same length."
-        )
+        raise ValueError("labels and scores must have the same length.")
 
     if not labels:
         return 0.0
@@ -76,9 +72,7 @@ def top1_label(
     scores: Sequence[float],
 ) -> str:
     if len(labels) != len(scores):
-        raise ValueError(
-            "labels and scores must have the same length."
-        )
+        raise ValueError("labels and scores must have the same length.")
 
     if not labels:
         raise ValueError("Cannot select from an empty query.")

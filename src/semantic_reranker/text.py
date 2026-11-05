@@ -4,7 +4,6 @@ import math
 import re
 from collections.abc import Mapping
 
-
 WHITESPACE_PATTERN = re.compile(r"\s+")
 
 

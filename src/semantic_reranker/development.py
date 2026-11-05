@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +13,6 @@ import pyarrow.parquet as pq
 
 from semantic_reranker.contracts import GAIN_BY_LABEL
 from semantic_reranker.metrics import dcg_at_k
-
 
 HIGH_RELEVANCE_LABELS = {"E", "S"}
 IRRELEVANT_LABEL = "I"
@@ -39,9 +38,7 @@ def require_exact_hash(
 
     if actual_sha256 != expected_sha256:
         raise ValueError(
-            f"{label} hash mismatch. "
-            f"Expected={expected_sha256} "
-            f"Actual={actual_sha256}"
+            f"{label} hash mismatch. Expected={expected_sha256} Actual={actual_sha256}"
         )
 
 
@@ -52,26 +49,23 @@ def stable_query_partition(
     if modulus < 2:
         raise ValueError("modulus must be at least 2.")
 
-    digest = hashlib.sha256(
-        str(query_id).encode("utf-8")
-    ).digest()
+    digest = hashlib.sha256(str(query_id).encode("utf-8")).digest()
 
-    return int.from_bytes(
-        digest[:8],
-        byteorder="big",
-        signed=False,
-    ) % modulus
+    return (
+        int.from_bytes(
+            digest[:8],
+            byteorder="big",
+            signed=False,
+        )
+        % modulus
+    )
 
 
 def normalize_tokens(value: object) -> set[str]:
     if value is None or pd.isna(value):
         return set()
 
-    return {
-        token.lower()
-        for token in TOKEN_PATTERN.findall(str(value))
-        if token
-    }
+    return {token.lower() for token in TOKEN_PATTERN.findall(str(value)) if token}
 
 
 def lexical_title_coverage(
@@ -85,9 +79,7 @@ def lexical_title_coverage(
 
     title_tokens = normalize_tokens(title)
 
-    return len(
-        query_tokens.intersection(title_tokens)
-    ) / len(query_tokens)
+    return len(query_tokens.intersection(title_tokens)) / len(query_tokens)
 
 
 def assign_query_disjoint_partition(
@@ -100,15 +92,11 @@ def assign_query_disjoint_partition(
     missing = required.difference(frame.columns)
 
     if missing:
-        raise ValueError(
-            f"Missing split keys: {sorted(missing)}"
-        )
+        raise ValueError(f"Missing split keys: {sorted(missing)}")
 
     assigned = frame.copy()
 
-    assigned["query_hash_partition"] = assigned[
-        "query_id"
-    ].map(
+    assigned["query_hash_partition"] = assigned["query_id"].map(
         lambda value: stable_query_partition(
             value,
             modulus=modulus,
@@ -116,24 +104,17 @@ def assign_query_disjoint_partition(
     )
 
     assigned["development_partition"] = np.where(
-        assigned["query_hash_partition"].isin(
-            validation_partitions
-        ),
+        assigned["query_hash_partition"].isin(validation_partitions),
         "validation",
         "fit",
     )
 
-    per_query_partition_count = (
-        assigned.groupby("query_id")[
-            "development_partition"
-        ]
-        .nunique()
-    )
+    per_query_partition_count = assigned.groupby("query_id")[
+        "development_partition"
+    ].nunique()
 
     if not (per_query_partition_count == 1).all():
-        raise RuntimeError(
-            "A query was assigned to multiple development partitions."
-        )
+        raise RuntimeError("A query was assigned to multiple development partitions.")
 
     return assigned
 
@@ -152,9 +133,7 @@ def rank_lexical_candidates(
     missing = required.difference(frame.columns)
 
     if missing:
-        raise ValueError(
-            f"Lexical baseline missing columns: {sorted(missing)}"
-        )
+        raise ValueError(f"Lexical baseline missing columns: {sorted(missing)}")
 
     ranked = frame.copy()
 
@@ -166,9 +145,7 @@ def rank_lexical_candidates(
         )
     ]
 
-    ranked["_product_sort"] = ranked[
-        "product_id"
-    ].astype(str)
+    ranked["_product_sort"] = ranked["product_id"].astype(str)
 
     ranked = ranked.sort_values(
         [
@@ -180,11 +157,7 @@ def rank_lexical_candidates(
         kind="mergesort",
     ).copy()
 
-    ranked["lexical_rank"] = (
-        ranked.groupby("query_id")
-        .cumcount()
-        .add(1)
-    )
+    ranked["lexical_rank"] = ranked.groupby("query_id").cumcount().add(1)
 
     return ranked.drop(columns=["_product_sort"])
 
@@ -199,10 +172,7 @@ def mean_ndcg_at_k(
         "query_id",
         sort=False,
     ):
-        ordered_gains = [
-            GAIN_BY_LABEL[label]
-            for label in query_rows["esci_label"]
-        ]
+        ordered_gains = [GAIN_BY_LABEL[label] for label in query_rows["esci_label"]]
 
         ideal_gains = sorted(
             ordered_gains,
@@ -239,33 +209,17 @@ def partition_summary(
         "development_partition",
         sort=True,
     ):
-        label_counts = (
-            partition_rows["esci_label"]
-            .value_counts()
-            .to_dict()
-        )
+        label_counts = partition_rows["esci_label"].value_counts().to_dict()
 
         rows.append(
             {
-                "development_partition": str(
-                    partition_name
-                ),
-                "candidate_row_count": int(
-                    len(partition_rows)
-                ),
-                "query_count": int(
-                    partition_rows["query_id"].nunique()
-                ),
+                "development_partition": str(partition_name),
+                "candidate_row_count": int(len(partition_rows)),
+                "query_count": int(partition_rows["query_id"].nunique()),
                 "exact_count": int(label_counts.get("E", 0)),
-                "substitute_count": int(
-                    label_counts.get("S", 0)
-                ),
-                "complement_count": int(
-                    label_counts.get("C", 0)
-                ),
-                "irrelevant_count": int(
-                    label_counts.get("I", 0)
-                ),
+                "substitute_count": int(label_counts.get("S", 0)),
+                "complement_count": int(label_counts.get("C", 0)),
+                "irrelevant_count": int(label_counts.get("I", 0)),
             }
         )
 
@@ -283,43 +237,23 @@ def audit_development_lexical_baseline(
         validation_partitions = {8, 9}
 
     if not validation_partitions:
-        raise ValueError(
-            "validation_partitions must not be empty."
-        )
+        raise ValueError("validation_partitions must not be empty.")
 
     if any(
-        partition < 0 or partition >= modulus
-        for partition in validation_partitions
+        partition < 0 or partition >= modulus for partition in validation_partitions
     ):
-        raise ValueError(
-            "validation_partitions must be within the modulus range."
-        )
+        raise ValueError("validation_partitions must be within the modulus range.")
 
-    source_contract = json.loads(
-        source_contract_path.read_text(
-            encoding="utf-8"
-        )
-    )
+    source_contract = json.loads(source_contract_path.read_text(encoding="utf-8"))
 
-    if (
-        source_contract.get("status") !=
-        "ESCI_US_TASK1_SOURCE_CONTRACT_PASS"
-    ):
-        raise ValueError(
-            "Source contract does not have PASS status."
-        )
+    if source_contract.get("status") != "ESCI_US_TASK1_SOURCE_CONTRACT_PASS":
+        raise ValueError("Source contract does not have PASS status.")
 
     dataset_root = raw_root / "shopping_queries_dataset"
 
-    examples_path = (
-        dataset_root /
-        "shopping_queries_dataset_examples.parquet"
-    )
+    examples_path = dataset_root / "shopping_queries_dataset_examples.parquet"
 
-    products_path = (
-        dataset_root /
-        "shopping_queries_dataset_products.parquet"
-    )
+    products_path = dataset_root / "shopping_queries_dataset_products.parquet"
 
     require_exact_hash(
         examples_path,
@@ -356,14 +290,10 @@ def audit_development_lexical_baseline(
     ).to_pandas()
 
     if examples.empty:
-        raise RuntimeError(
-            "No US Task 1 training rows were loaded."
-        )
+        raise RuntimeError("No US Task 1 training rows were loaded.")
 
     if set(examples["split"].unique()) != {"train"}:
-        raise RuntimeError(
-            "Non-training rows entered development audit."
-        )
+        raise RuntimeError("Non-training rows entered development audit.")
 
     products = pq.read_table(
         products_path,
@@ -386,9 +316,7 @@ def audit_development_lexical_baseline(
         subset=["product_locale", "product_id"],
         keep=False,
     ).any():
-        raise RuntimeError(
-            "Duplicate locale-product keys in product catalog."
-        )
+        raise RuntimeError("Duplicate locale-product keys in product catalog.")
 
     candidates = examples.merge(
         products,
@@ -398,13 +326,9 @@ def audit_development_lexical_baseline(
     )
 
     if len(candidates) != len(examples):
-        raise RuntimeError(
-            "Candidate join changed the source row count."
-        )
+        raise RuntimeError("Candidate join changed the source row count.")
 
-    candidates["product_title"] = candidates[
-        "product_title"
-    ].fillna("")
+    candidates["product_title"] = candidates["product_title"].fillna("")
 
     candidates = assign_query_disjoint_partition(
         candidates,
@@ -412,80 +336,49 @@ def audit_development_lexical_baseline(
         modulus=modulus,
     )
 
-    fit_rows = candidates.loc[
-        candidates["development_partition"] == "fit"
-    ].copy()
+    fit_rows = candidates.loc[candidates["development_partition"] == "fit"].copy()
 
     validation_rows = candidates.loc[
         candidates["development_partition"] == "validation"
     ].copy()
 
-    fit_query_ids = set(
-        fit_rows["query_id"].unique()
-    )
+    fit_query_ids = set(fit_rows["query_id"].unique())
 
-    validation_query_ids = set(
-        validation_rows["query_id"].unique()
-    )
+    validation_query_ids = set(validation_rows["query_id"].unique())
 
     if fit_query_ids.intersection(validation_query_ids):
-        raise RuntimeError(
-            "Query leakage detected between fit and validation."
-        )
+        raise RuntimeError("Query leakage detected between fit and validation.")
 
-    ranked_validation = rank_lexical_candidates(
-        validation_rows
-    )
+    ranked_validation = rank_lexical_candidates(validation_rows)
 
-    top1 = ranked_validation.loc[
-        ranked_validation["lexical_rank"] == 1
-    ].copy()
+    top1 = ranked_validation.loc[ranked_validation["lexical_rank"] == 1].copy()
 
-    if len(top1) != validation_rows[
-        "query_id"
-    ].nunique():
+    if len(top1) != validation_rows["query_id"].nunique():
         raise RuntimeError(
             "Lexical comparator did not select one candidate "
             "for every validation query."
         )
 
-    top1_high_relevance = top1["esci_label"].isin(
-        HIGH_RELEVANCE_LABELS
-    )
+    top1_high_relevance = top1["esci_label"].isin(HIGH_RELEVANCE_LABELS)
 
-    top1_irrelevant = top1["esci_label"].eq(
-        IRRELEVANT_LABEL
-    )
+    top1_irrelevant = top1["esci_label"].eq(IRRELEVANT_LABEL)
 
     top1_label_counts = {
         str(label): int(count)
-        for label, count in (
-            top1["esci_label"]
-            .value_counts()
-            .sort_index()
-            .items()
-        )
+        for label, count in (top1["esci_label"].value_counts().sort_index().items())
     }
 
     partition_report = partition_summary(candidates)
 
     lexical_metrics = {
-        "eligible_validation_query_count": int(
-            top1["query_id"].nunique()
-        ),
-        "validation_candidate_row_count": int(
-            len(validation_rows)
-        ),
+        "eligible_validation_query_count": int(top1["query_id"].nunique()),
+        "validation_candidate_row_count": int(len(validation_rows)),
         "ndcg_at_10": mean_ndcg_at_k(
             ranked_validation,
             k=10,
         ),
-        "top1_high_relevance_precision": float(
-            top1_high_relevance.mean()
-        ),
-        "top1_irrelevant_rate": float(
-            top1_irrelevant.mean()
-        ),
+        "top1_high_relevance_precision": float(top1_high_relevance.mean()),
+        "top1_irrelevant_rate": float(top1_irrelevant.mean()),
         "top1_label_counts": top1_label_counts,
         "mean_top1_lexical_title_coverage": float(
             top1["lexical_title_coverage"].mean()
@@ -497,20 +390,11 @@ def audit_development_lexical_baseline(
         exist_ok=False,
     )
 
-    partition_summary_path = (
-        output_root /
-        "development_partition_summary.csv"
-    )
+    partition_summary_path = output_root / "development_partition_summary.csv"
 
-    top1_path = (
-        output_root /
-        "lexical_baseline_validation_top1.csv"
-    )
+    top1_path = output_root / "lexical_baseline_validation_top1.csv"
 
-    receipt_path = (
-        output_root /
-        "development_lexical_baseline_receipt.json"
-    )
+    receipt_path = output_root / "development_lexical_baseline_receipt.json"
 
     partition_report.to_csv(
         partition_summary_path,
@@ -533,34 +417,19 @@ def audit_development_lexical_baseline(
     )
 
     payload = {
-        "status": (
-            "QUERY_DISJOINT_DEVELOPMENT_AND_"
-            "FROZEN_LEXICAL_BASELINE_COMPLETE"
-        ),
-        "generated_at_utc": datetime.now(
-            timezone.utc
-        ).isoformat(),
-        "source_contract_path": str(
-            source_contract_path
-        ),
-        "source_contract_sha256": sha256_file(
-            source_contract_path
-        ),
-        "examples_parquet_sha256": sha256_file(
-            examples_path
-        ),
-        "products_parquet_sha256": sha256_file(
-            products_path
-        ),
+        "status": ("QUERY_DISJOINT_DEVELOPMENT_AND_FROZEN_LEXICAL_BASELINE_COMPLETE"),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
+        "source_contract_path": str(source_contract_path),
+        "source_contract_sha256": sha256_file(source_contract_path),
+        "examples_parquet_sha256": sha256_file(examples_path),
+        "products_parquet_sha256": sha256_file(products_path),
         "official_test_row_level_used": False,
         "development_split": {
             "source_split": "train",
             "group_key": "query_id",
             "hash_algorithm": "sha256",
             "hash_modulus": modulus,
-            "validation_partitions": sorted(
-                validation_partitions
-            ),
+            "validation_partitions": sorted(validation_partitions),
             "fit_partitions": [
                 partition
                 for partition in range(modulus)
@@ -569,24 +438,12 @@ def audit_development_lexical_baseline(
             "query_group_leakage_detected": False,
         },
         "development_dataset_summary": {
-            "total_candidate_row_count": int(
-                len(candidates)
-            ),
-            "total_query_count": int(
-                candidates["query_id"].nunique()
-            ),
-            "fit_candidate_row_count": int(
-                len(fit_rows)
-            ),
-            "fit_query_count": int(
-                fit_rows["query_id"].nunique()
-            ),
-            "validation_candidate_row_count": int(
-                len(validation_rows)
-            ),
-            "validation_query_count": int(
-                validation_rows["query_id"].nunique()
-            ),
+            "total_candidate_row_count": int(len(candidates)),
+            "total_query_count": int(candidates["query_id"].nunique()),
+            "fit_candidate_row_count": int(len(fit_rows)),
+            "fit_query_count": int(fit_rows["query_id"].nunique()),
+            "validation_candidate_row_count": int(len(validation_rows)),
+            "validation_query_count": int(validation_rows["query_id"].nunique()),
             "missing_product_title_count": int(
                 candidates["product_title"].eq("").sum()
             ),
@@ -597,9 +454,7 @@ def audit_development_lexical_baseline(
                 candidates["product_color"].isna().sum()
             ),
             "missing_product_bullet_point_count": int(
-                candidates[
-                    "product_bullet_point"
-                ].isna().sum()
+                candidates["product_bullet_point"].isna().sum()
             ),
         },
         "lexical_comparator": {
@@ -608,9 +463,7 @@ def audit_development_lexical_baseline(
                 "query",
                 "product_title",
             ],
-            "score": (
-                "unique query-token coverage in product title"
-            ),
+            "score": ("unique query-token coverage in product title"),
             "sort_order": [
                 "lexical_title_coverage_descending",
                 "product_id_ascending",
@@ -620,8 +473,7 @@ def audit_development_lexical_baseline(
             "metrics": lexical_metrics,
         },
         "next_gate": (
-            "BUILD_GPU_CROSS_ENCODER_DEVELOPMENT_DRIVER_"
-            "AGAINST_FROZEN_LEXICAL_BASELINE"
+            "BUILD_GPU_CROSS_ENCODER_DEVELOPMENT_DRIVER_AGAINST_FROZEN_LEXICAL_BASELINE"
         ),
     }
 
@@ -635,12 +487,8 @@ def audit_development_lexical_baseline(
     )
 
     payload["receipt_path"] = str(receipt_path)
-    payload["receipt_sha256"] = sha256_file(
-        receipt_path
-    )
-    payload["partition_summary_path"] = str(
-        partition_summary_path
-    )
+    payload["receipt_sha256"] = sha256_file(receipt_path)
+    payload["partition_summary_path"] = str(partition_summary_path)
     payload["top1_path"] = str(top1_path)
 
     return payload

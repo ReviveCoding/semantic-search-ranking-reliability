@@ -5,7 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
@@ -46,9 +45,7 @@ def main() -> None:
 
     payload = audit_development_lexical_baseline(
         raw_root=args.raw_root.resolve(),
-        source_contract_path=(
-            args.source_contract.resolve()
-        ),
+        source_contract_path=(args.source_contract.resolve()),
         output_root=args.output_root.resolve(),
     )
 
@@ -57,23 +54,11 @@ def main() -> None:
             {
                 "status": payload["status"],
                 "official_test_row_level_used": (
-                    payload[
-                        "official_test_row_level_used"
-                    ]
+                    payload["official_test_row_level_used"]
                 ),
-                "development_split": (
-                    payload["development_split"]
-                ),
-                "development_dataset_summary": (
-                    payload[
-                        "development_dataset_summary"
-                    ]
-                ),
-                "lexical_comparator": (
-                    payload[
-                        "lexical_comparator"
-                    ]
-                ),
+                "development_split": (payload["development_split"]),
+                "development_dataset_summary": (payload["development_dataset_summary"]),
+                "lexical_comparator": (payload["lexical_comparator"]),
                 "next_gate": payload["next_gate"],
                 "receipt_path": payload["receipt_path"],
                 "receipt_sha256": payload["receipt_sha256"],

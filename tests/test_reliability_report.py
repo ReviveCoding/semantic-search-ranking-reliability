@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pandas as pd
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -52,25 +51,15 @@ def test_support_slice_uses_frozen_lexical_anchor() -> None:
 
     assert len(result) == 1
     assert result.iloc[0]["query_count"] == 2
-    assert (
-        result.iloc[0][
-            "top1_high_relevance_delta"
-        ] == 0.5
-    )
-    assert (
-        result.iloc[0][
-            "top1_irrelevant_delta"
-        ] == -0.5
-    )
+    assert result.iloc[0]["top1_high_relevance_delta"] == 0.5
+    assert result.iloc[0]["top1_irrelevant_delta"] == -0.5
 
 
 def test_markdown_table_has_no_tabulate_dependency(
     monkeypatch,
 ) -> None:
     def fail_if_called(*args, **kwargs):
-        raise RuntimeError(
-            "DataFrame.to_markdown must not be called."
-        )
+        raise RuntimeError("DataFrame.to_markdown must not be called.")
 
     monkeypatch.setattr(
         pd.DataFrame,

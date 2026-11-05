@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pandas as pd
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -45,14 +44,7 @@ def test_query_disjoint_assignment_keeps_query_together() -> None:
         validation_partitions={8, 9},
     )
 
-    assert (
-        assigned.groupby("query_id")[
-            "development_partition"
-        ]
-        .nunique()
-        .eq(1)
-        .all()
-    )
+    assert assigned.groupby("query_id")["development_partition"].nunique().eq(1).all()
 
 
 def test_lexical_title_coverage() -> None:

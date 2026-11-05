@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import pyarrow.parquet as pq
-
 
 REQUIRED_EXAMPLE_COLUMNS = {
     "example_id",
@@ -58,9 +57,7 @@ def is_git_lfs_pointer(path: Path) -> bool:
     with path.open("rb") as handle:
         prefix = handle.read(128)
 
-    return prefix.startswith(
-        b"version https://git-lfs.github.com/spec/v1"
-    )
+    return prefix.startswith(b"version https://git-lfs.github.com/spec/v1")
 
 
 def require_columns(
@@ -71,9 +68,7 @@ def require_columns(
     missing = sorted(required.difference(actual))
 
     if missing:
-        raise ValueError(
-            f"{label} is missing required columns: {missing}"
-        )
+        raise ValueError(f"{label} is missing required columns: {missing}")
 
 
 def audit_esci_us_task1(
@@ -83,18 +78,9 @@ def audit_esci_us_task1(
 ) -> dict[str, Any]:
     dataset_root = raw_root / "shopping_queries_dataset"
 
-    examples_path = (
-        dataset_root /
-        "shopping_queries_dataset_examples.parquet"
-    )
-    products_path = (
-        dataset_root /
-        "shopping_queries_dataset_products.parquet"
-    )
-    sources_path = (
-        dataset_root /
-        "shopping_queries_dataset_sources.csv"
-    )
+    examples_path = dataset_root / "shopping_queries_dataset_examples.parquet"
+    products_path = dataset_root / "shopping_queries_dataset_products.parquet"
+    sources_path = dataset_root / "shopping_queries_dataset_sources.csv"
 
     required_paths = [
         examples_path,
@@ -104,24 +90,14 @@ def audit_esci_us_task1(
 
     for path in required_paths:
         if not path.is_file():
-            raise FileNotFoundError(
-                f"Required ESCI file is missing: {path}"
-            )
+            raise FileNotFoundError(f"Required ESCI file is missing: {path}")
 
         if path.suffix == ".parquet" and is_git_lfs_pointer(path):
-            raise RuntimeError(
-                f"Git LFS content was not downloaded: {path}"
-            )
+            raise RuntimeError(f"Git LFS content was not downloaded: {path}")
 
-    example_columns = set(
-        pq.ParquetFile(examples_path).schema_arrow.names
-    )
-    product_columns = set(
-        pq.ParquetFile(products_path).schema_arrow.names
-    )
-    source_columns = set(
-        pd.read_csv(sources_path, nrows=0).columns
-    )
+    example_columns = set(pq.ParquetFile(examples_path).schema_arrow.names)
+    product_columns = set(pq.ParquetFile(products_path).schema_arrow.names)
+    source_columns = set(pd.read_csv(sources_path, nrows=0).columns)
 
     require_columns(
         example_columns,
@@ -152,43 +128,26 @@ def audit_esci_us_task1(
     )
 
     us_task1 = examples.loc[
-        (examples["product_locale"] == "us") &
-        (examples["small_version"] == 1)
+        (examples["product_locale"] == "us") & (examples["small_version"] == 1)
     ].copy()
 
     if us_task1.empty:
-        raise RuntimeError(
-            "No US Task 1 rows were found."
-        )
+        raise RuntimeError("No US Task 1 rows were found.")
 
     split_counts = {
         str(name): int(count)
-        for name, count in (
-            us_task1["split"]
-            .value_counts()
-            .sort_index()
-            .items()
-        )
+        for name, count in (us_task1["split"].value_counts().sort_index().items())
     }
 
     if not {"train", "test"}.issubset(split_counts):
-        raise RuntimeError(
-            "US Task 1 must contain train and test rows."
-        )
+        raise RuntimeError("US Task 1 must contain train and test rows.")
 
     label_counts = {
         str(name): int(count)
-        for name, count in (
-            us_task1["esci_label"]
-            .value_counts()
-            .sort_index()
-            .items()
-        )
+        for name, count in (us_task1["esci_label"].value_counts().sort_index().items())
     }
 
-    observed_labels = set(
-        us_task1["esci_label"].dropna().unique()
-    )
+    observed_labels = set(us_task1["esci_label"].dropna().unique())
 
     allowed_labels = {"E", "S", "C", "I"}
 
@@ -209,14 +168,9 @@ def audit_esci_us_task1(
 
     payload = {
         "status": "ESCI_US_TASK1_SOURCE_CONTRACT_PASS",
-        "generated_at_utc": datetime.now(
-            timezone.utc
-        ).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "source": {
-            "repository": (
-                "https://github.com/"
-                "amazon-science/esci-data.git"
-            ),
+            "repository": ("https://github.com/amazon-science/esci-data.git"),
             "commit": source_commit,
             "raw_root": str(raw_root),
             "subset": {
@@ -232,12 +186,8 @@ def audit_esci_us_task1(
         },
         "task1_us_summary": {
             "row_count": int(len(us_task1)),
-            "unique_query_count": int(
-                us_task1["query_id"].nunique()
-            ),
-            "unique_product_count": int(
-                us_task1["product_id"].nunique()
-            ),
+            "unique_query_count": int(us_task1["query_id"].nunique()),
+            "unique_product_count": int(us_task1["product_id"].nunique()),
             "split_counts": split_counts,
             "label_counts": label_counts,
         },
@@ -248,8 +198,7 @@ def audit_esci_us_task1(
             "official_test_row_level_used_for_model_selection": False,
         },
         "next_gate": (
-            "BUILD_QUERY_DISJOINT_DEVELOPMENT_DATASET_"
-            "AND_FROZEN_LEXICAL_COMPARATOR"
+            "BUILD_QUERY_DISJOINT_DEVELOPMENT_DATASET_AND_FROZEN_LEXICAL_COMPARATOR"
         ),
     }
 
@@ -258,10 +207,7 @@ def audit_esci_us_task1(
         exist_ok=False,
     )
 
-    receipt_path = (
-        output_root /
-        "esci_us_task1_source_contract.json"
-    )
+    receipt_path = output_root / "esci_us_task1_source_contract.json"
 
     receipt_path.write_text(
         json.dumps(
